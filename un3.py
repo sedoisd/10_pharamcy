@@ -1,11 +1,12 @@
+import pprint
 from io import BytesIO
 from PIL import Image
 from geocode import *
-from distance import lonlat_distance
 import argparse
 
 address_default = 'тольятти проспект Степана Разина 41'
 
+# argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('address', nargs='?')
 args = parser.parse_args()
@@ -15,34 +16,40 @@ else:
     print(f'Выбран адрес по умолчанию: {address_default}')
     toponym_to_find = address_default
 
-ll_one = get_ll(toponym_to_find)
+# main
+ll_by_set_address = get_ll(toponym_to_find)
 search_params = {
     "text": "аптека",
     "lang": "ru_RU",
-    "ll": f'{ll_one[0]},{ll_one[1]}',
+    "ll": f'{ll_by_set_address[0]},{ll_by_set_address[1]}',
     "type": "biz"
 }
 response_geosearch = get_org(search_params)
-properties = response_geosearch.json()['features'][0]['properties']
-address = properties['CompanyMetaData']['address']
-name = properties['CompanyMetaData']['name']
-hours = properties['CompanyMetaData']['Hours']['text']
+features_from_search = response_geosearch.json()['features']
+labels = [f'{ll_by_set_address[0]},{ll_by_set_address[1]},pm2al']
 
-ll_two = response_geosearch.json()['features'][0]['geometry']['coordinates']
-label_one = f'{ll_one[0]},{ll_one[1]},pm2al'
-label_two = f'{ll_two[0]},{ll_two[1]},pm2bl'
-labels = f'{label_one}~{label_two}'
+for i in range(10):
+    properties = features_from_search[i]['properties']
+    try:
+        hours = properties['CompanyMetaData']['Hours']['text']
+    except Exception:
+        color = 'gr'
+    else:
+        if 'круглосуточно' in hours:
+            color = 'gn'
+        else:
+            color = 'bl'
+    ll_pharmacy = features_from_search[i]['geometry']['coordinates']
+    label = f'{ll_pharmacy[0]},{ll_pharmacy[1]},pm{color}s'
+    labels.append(label)
+    # print(label) # log
+
+    snippet = (f'Сниппет:    Время работы - {hours}')
+    # print(snippet, '\n') # log
 
 map_params = {
-    'pt': labels
+    'pt': '~'.join(labels)
 }
-snippet = (f'Сниппет:\n'
-           f'    Название - {name}\n'
-           f'    Адрес - {address}\n'
-           f'    Время работы - {hours}\n'
-           f'    Расстоние - {round(lonlat_distance(ll_one, ll_two))} м.')
-print(snippet)
-
 response_static = get_map(map_params)
 im = BytesIO(response_static.content)
 opened_image = Image.open(im)

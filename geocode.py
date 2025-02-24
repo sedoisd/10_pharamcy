@@ -15,6 +15,7 @@ def request_error(response, url, exit=None):
     print("Ошибка выполнения запроса:")
     print('Сервер:', url)
     print("Http статус:", response.status_code, "(", response.reason, ")")
+    print('url:', response.url)
     print('Выход:', exit)
     sys.exit(1)
 
